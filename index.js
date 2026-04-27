@@ -2,6 +2,7 @@ const dotenv = require('dotenv')
 dotenv.config()
 console.log("TEST ENV:", process.env.GOOGLE_REFRESH_TOKEN);
 console.log("MONGO_URI:", process.env.MONGO_URI);
+console.log("GOOGLE CLIENT ID:", process.env.GOOGLE_CLIENT_ID);
 const express = require('express')
 const cors = require('cors')
 const connectDB = require('./db')
