@@ -1,3 +1,5 @@
+const { Client } = require("@gradio/client");
+
 exports.uploadMRI = async (req, res) => {
   try {
     const file = req.file;
@@ -6,60 +8,26 @@ exports.uploadMRI = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const base64File = file.buffer.toString("base64");
-
-    // STEP 1: Start request
-    const response = await fetch(
-      "https://hehehanz-4156-1-slicevit.hf.space/gradio_api/call/predict",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          data: [
-            {
-              name: file.originalname,
-              data: base64File,
-            },
-            "Attention Rollout",
-            6,
-          ],
-        }),
-      }
+    const client = await Client.connect(
+      "hehehanz-4156-1/slicevit"
     );
 
-    const init = await response.json();
-    console.log("INIT RESPONSE:", init);
+    // 🔥 IMPORTANT: inspect correct API first time
+    const api = await client.view_api();
+    console.log(api);
 
-    if (!init.event_id) {
-      throw new Error("Failed to start prediction");
-    }
+    // 🔥 USE CORRECT FUNCTION (usually fn_index 0)
+    const result = await client.predict(0, {
+      file: file.buffer,
+      xai_method: "Attention Rollout",
+      top_k: 6,
+    });
 
-    const eventId = init.event_id;
-
-    // STEP 2: Poll result
-    const resultResponse = await fetch(
-      `https://hehehanz-4156-1-slicevit.hf.space/gradio_api/queue/data?event_id=${eventId}`
-    );
-
-    const resultText = await resultResponse.text();
-    console.log("RAW RESULT:", resultText);
-
-    const result = JSON.parse(resultText);
-
-    if (!result.data) {
-      throw new Error("No result returned from model");
-    }
-
-    const [markdown, probabilities] = result.data;
+    console.log("RESULT:", result);
 
     return res.json({
       success: true,
-      result: {
-        markdown,
-        probabilities,
-      },
+      result,
     });
 
   } catch (err) {
