@@ -6,8 +6,6 @@ exports.uploadMRI = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const base64File = file.buffer.toString("base64");
-
     const response = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
       {
@@ -17,12 +15,9 @@ exports.uploadMRI = async (req, res) => {
         },
         body: JSON.stringify({
           data: [
-            {
-              name: file.originalname,
-              data: base64File,
-            },
-            "Attention Rollout",
-            6
+            file.buffer,                 // 🔥 REAL FILE BUFFER
+            "Attention Rollout",        // method
+            6                            // top_k
           ]
         }),
       }
@@ -33,18 +28,14 @@ exports.uploadMRI = async (req, res) => {
     console.log("RAW RESPONSE:", json);
 
     if (!json.data) {
-      throw new Error("No data returned from model");
+      throw new Error(JSON.stringify(json));
     }
 
     const [markdown, probabilities, heatmap] = json.data;
 
     return res.json({
       success: true,
-      result: {
-        markdown,
-        probabilities,
-        heatmap
-      }
+      result: { markdown, probabilities, heatmap }
     });
 
   } catch (err) {
