@@ -8,8 +8,9 @@ exports.uploadMRI = async (req, res) => {
 
     const base64File = file.buffer.toString("base64");
 
+    // STEP 1: Start request
     const response = await fetch(
-      "https://hehehanz-4156-1-slicevit.hf.space/run/predict",
+      "https://hehehanz-4156-1-slicevit.hf.space/gradio_api/call/predict",
       {
         method: "POST",
         headers: {
@@ -20,7 +21,6 @@ exports.uploadMRI = async (req, res) => {
             {
               name: file.originalname,
               data: base64File,
-              is_file: true,
             },
             "Attention Rollout",
             6,
@@ -29,20 +29,35 @@ exports.uploadMRI = async (req, res) => {
       }
     );
 
-    const json = await response.json();
+    const init = await response.json();
+    console.log("INIT RESPONSE:", init);
 
-    console.log("RAW RESPONSE:", json);
-
-    if (!json.data) {
-      throw new Error("Invalid model response");
+    if (!init.event_id) {
+      throw new Error("Failed to start prediction");
     }
 
-    const [markdownResult, probabilities] = json.data;
+    const eventId = init.event_id;
+
+    // STEP 2: Poll result
+    const resultResponse = await fetch(
+      `https://hehehanz-4156-1-slicevit.hf.space/gradio_api/queue/data?event_id=${eventId}`
+    );
+
+    const resultText = await resultResponse.text();
+    console.log("RAW RESULT:", resultText);
+
+    const result = JSON.parse(resultText);
+
+    if (!result.data) {
+      throw new Error("No result returned from model");
+    }
+
+    const [markdown, probabilities] = result.data;
 
     return res.json({
       success: true,
       result: {
-        markdown: markdownResult,
+        markdown,
         probabilities,
       },
     });
@@ -55,7 +70,6 @@ exports.uploadMRI = async (req, res) => {
     });
   }
 };
-
 // const MRI = require("../models/MRI");
 // const drive = require("../config/googleDrive");
 // const { Readable } = require("stream");
