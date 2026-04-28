@@ -1,5 +1,4 @@
 const FormData = require("form-data");
-const fetch = require("node-fetch");
 
 exports.uploadMRI = async (req, res) => {
   try {
@@ -11,7 +10,6 @@ exports.uploadMRI = async (req, res) => {
 
     const form = new FormData();
 
-    // 🔥 THIS IS THE KEY FIX
     form.append("data", file.buffer, {
       filename: file.originalname,
     });
@@ -19,6 +17,7 @@ exports.uploadMRI = async (req, res) => {
     form.append("data", "Attention Rollout");
     form.append("data", "6");
 
+    // 🔥 BUILT-IN FETCH (NO IMPORT)
     const response = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
       {
@@ -31,27 +30,13 @@ exports.uploadMRI = async (req, res) => {
 
     console.log("RAW RESPONSE:", json);
 
-    if (!json.data) {
-      throw new Error(JSON.stringify(json));
-    }
-
-    const [markdown, probabilities, heatmap] = json.data;
-
-    return res.json({
-      success: true,
-      result: {
-        markdown,
-        probabilities,
-        heatmap,
-      },
-    });
+    return res.json(json);
 
   } catch (err) {
-    console.error("ERROR:", err);
-
+    console.error(err);
     return res.status(500).json({
       success: false,
-      error: err.message,
+      error: err.message
     });
   }
 };
