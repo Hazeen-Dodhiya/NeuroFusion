@@ -31,25 +31,24 @@ exports.uploadMRI = async (req, res) => {
 
     // 🔹 Send to Hugging Face (NO IMPORT NEEDED)
     const response = await fetch(
-      "https://hehehanz-4156-1-slicevit.hf.space/run/predict",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          data: [
-            {
-              name: file.originalname,
-              data: base64File,
-              is_file: true,
-            },
-            "Attention Rollout",
-            6,
-          ],
-        }),
-      }
-    );
+    "https://hehehanz-4156-1-slicevit.hf.space/run/predict",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        data: [
+          {
+            name: file.originalname,
+            data: base64File,   // ❌ NO prefix
+          },
+          "Attention Rollout",
+          6,
+        ],
+      }),
+    }
+  );
 
     // 🔥 Read raw response for debugging
     const text = await response.text();
