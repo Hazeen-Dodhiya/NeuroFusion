@@ -1,39 +1,8 @@
 const { Client } = require("@gradio/client");
 
-exports.uploadMRI = async (req, res) => {
-  try {
-    const file = req.file;
+const client = await Client.connect("hehehanz-4156-1/slicevit");
 
-    if (!file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
-
-    const client = await Client.connect(
-      "hehehanz-4156-1/slicevit"
-    );
-
-    const result = await client.predict("/predict", {
-      file: file.buffer,
-      xai_method: "Attention Rollout",
-      top_k: 6,
-    });
-
-    console.log("RESULT:", result);
-
-    return res.json({
-      success: true,
-      result,
-    });
-
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({
-      success: false,
-      error: err.message,
-    });
-  }
-};
-
+console.log(await client.view_api());
 
 // const MRI = require("../models/MRI");
 // const drive = require("../config/googleDrive");
