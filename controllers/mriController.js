@@ -1,4 +1,4 @@
-const { Client } = require("@gradio/client");
+const { Client, handle_file } = require("@gradio/client");
 
 exports.uploadMRI = async (req, res) => {
   try {
@@ -8,20 +8,25 @@ exports.uploadMRI = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const client = await Client.connect(
-      "hehehanz-4156-1/slicevit"
-    );
+    const client = await Client.connect("hehehanz-4156-1/slicevit");
 
-    // 🔥 KEY FIX: pass REAL file buffer correctly
+    // Create a Blob from the buffer with the correct MIME type
+    const blob = new Blob([file.buffer], { type: "application/octet-stream" });
+
+    // Use handle_file so Gradio knows the filename (extension matters!)
+    const mriFile = await handle_file(blob, { name: file.originalname });
+
     const result = await client.predict("/analyse", [
-      file.buffer
+      mriFile,           // the MRI file
+      "Attention Rollout", // xai_method
+      6                    // top_k
     ]);
 
-    console.log("RESULT:", result);
+    console.log("RESULT:", result.data);
 
     return res.json({
       success: true,
-      result
+      result: result.data
     });
 
   } catch (err) {
