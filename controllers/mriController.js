@@ -2,55 +2,127 @@ const MRI = require("../models/MRI");
 const drive = require("../config/googleDrive");
 const { Readable } = require("stream");
 
+const fetch = require("node-fetch");
+
 exports.uploadMRI = async (req, res) => {
   try {
     const file = req.file;
-    const userId = req.user._id;
 
+    // ❌ No file
     if (!file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // 🧠 STEP 1: count previous uploads
-    const count = await MRI.countDocuments({ userId });
+    // 🔹 Convert buffer → base64
+    const base64File = file.buffer.toString("base64");
 
-    const uploadNumber = count + 1;
+    // 🔹 Call Hugging Face API
+    const response = await fetch(
+      "https://hehehanz-4156-1-slicevit.hf.space/run/predict",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          data: [
+            {
+              name: file.originalname || "volume.nii.gz",
+              data: `data:application/octet-stream;base64,${base64File}`,
+              is_file: false,
+            },
+            "Attention Rollout", // or "GradCAM"
+            6,
+          ],
+        }),
+      }
+    );
 
-    // 🧠 STEP 2: generate file name
-    const fileName = `MRI_${userId}_${uploadNumber}`;
+    const json = await response.json();
 
-    // 🧠 STEP 3: stream file
-    const stream = Readable.from(file.buffer);
+    // 🔥 Debug full response if needed
+    // console.log(json);
 
-    // 🧠 STEP 4: upload to Google Drive
-    const response = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+    const [markdownResult, probabilities, heatmap] = json.data || [];
+
+    // 🔥 Print in backend console
+    console.log("=== MRI ANALYSIS RESULT ===");
+    console.log("Markdown:", markdownResult);
+    console.log("Probabilities:", probabilities);
+    console.log("Heatmap:", heatmap);
+
+    // 🔹 Send response to frontend
+    return res.status(200).json({
+      success: true,
+      message: "MRI analysed successfully",
+      result: {
+        markdown: markdownResult,
+        probabilities,
+        // heatmap (optional, large object)
       },
-      media: {
-        mimeType: file.mimetype,
-        body: stream,
-      },
-    });
-    const fileUrl = `https://drive.google.com/file/d/${response.data.id}/view`;
-
-    // 🧠 STEP 5: save in DB
-    const newMRI = await MRI.create({
-      userId,
-      originalName: file.originalname,
-      fileName,
-      filePath: response.data.id, // Drive file ID
-      fileUrl,
-      uploadNumber,
-    });
-
-    res.status(201).json({
-      message: "MRI uploaded successfully",
-      mri: newMRI,
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("❌ MRI ANALYSIS ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to analyse MRI",
+      error: err.message,
+    });
   }
 };
+
+
+// exports.uploadMRI = async (req, res) => {
+//   try {
+//     const file = req.file;
+//     const userId = req.user._id;
+
+//     if (!file) {
+//       return res.status(400).json({ message: "No file uploaded" });
+//     }
+
+//     // 🧠 STEP 1: count previous uploads
+//     const count = await MRI.countDocuments({ userId });
+
+//     const uploadNumber = count + 1;
+
+//     // 🧠 STEP 2: generate file name
+//     const fileName = `MRI_${userId}_${uploadNumber}`;
+
+//     // 🧠 STEP 3: stream file
+//     const stream = Readable.from(file.buffer);
+
+//     // 🧠 STEP 4: upload to Google Drive
+//     const response = await drive.files.create({
+//       requestBody: {
+//         name: fileName,
+//         parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+//       },
+//       media: {
+//         mimeType: file.mimetype,
+//         body: stream,
+//       },
+//     });
+//     const fileUrl = `https://drive.google.com/file/d/${response.data.id}/view`;
+
+//     // 🧠 STEP 5: save in DB
+//     const newMRI = await MRI.create({
+//       userId,
+//       originalName: file.originalname,
+//       fileName,
+//       filePath: response.data.id, // Drive file ID
+//       fileUrl,
+//       uploadNumber,
+//     });
+
+//     res.status(201).json({
+//       message: "MRI uploaded successfully",
+//       mri: newMRI,
+//     });
+
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// };
