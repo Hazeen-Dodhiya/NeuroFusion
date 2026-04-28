@@ -1,4 +1,6 @@
-const { Client, handle_file } = require("@gradio/client");
+const { Client } = require("@gradio/client");
+const FormData = require("form-data");
+const fetch = require("node-fetch");
 
 exports.uploadMRI = async (req, res) => {
   try {
@@ -8,32 +10,54 @@ exports.uploadMRI = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    // ── Step 1: Upload the file manually to Gradio's /upload endpoint ──
+    // This preserves the original filename (with .nii/.gz/.npz extension)
+    // which is what Gradio uses for file type validation
+    const form = new FormData();
+    form.append("files", file.buffer, {
+      filename: file.originalname,   // e.g. "brain.nii.gz" — extension MUST be here
+      contentType: "application/octet-stream",
+    });
+
+    const uploadRes = await fetch(
+      "https://hehehanz-4156-1-slicevit.hf.space/upload",
+      {
+        method: "POST",
+        body: form,
+        headers: form.getHeaders(),
+      }
+    );
+
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text();
+      throw new Error(`Upload failed: ${uploadRes.status} — ${text}`);
+    }
+
+    const uploadedPaths = await uploadRes.json();
+    // uploadedPaths is an array like: ["tmp/abc123/brain.nii.gz"]
+    console.log("Uploaded file path:", uploadedPaths);
+
+    // ── Step 2: Call /analyse with the server-side file reference ──
     const client = await Client.connect("hehehanz-4156-1/slicevit");
 
-    // Create a Blob from the buffer with the correct MIME type
-    const blob = new Blob([file.buffer], { type: "application/octet-stream" });
-
-    // Use handle_file so Gradio knows the filename (extension matters!)
-    const mriFile = await handle_file(blob, { name: file.originalname });
-
     const result = await client.predict("/analyse", [
-      mriFile,           // the MRI file
-      "Attention Rollout", // xai_method
-      6                    // top_k
+      { path: uploadedPaths[0], orig_name: file.originalname },  // file ref
+      "Attention Rollout",  // xai_method
+      6,                    // top_k
     ]);
 
     console.log("RESULT:", result.data);
 
     return res.json({
       success: true,
-      result: result.data
+      result: result.data,
     });
 
   } catch (err) {
     console.error("ERROR:", err);
     return res.status(500).json({
       success: false,
-      error: err.message
+      error: err.message,
     });
   }
 };
