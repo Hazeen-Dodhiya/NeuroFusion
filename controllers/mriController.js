@@ -1,4 +1,5 @@
 const FormData = require("form-data");
+const { Readable } = require("stream");
 
 exports.uploadMRI = async (req, res) => {
   try {
@@ -10,8 +11,10 @@ exports.uploadMRI = async (req, res) => {
 
     const form = new FormData();
 
-    // 🔥 THIS IS THE FIX (must be "file")
-    form.append("file", file.buffer, {
+    // 🔥 KEY FIX: convert buffer → stream (REAL FILE)
+    const stream = Readable.from(file.buffer);
+
+    form.append("file", stream, {
       filename: file.originalname,
       contentType: file.mimetype,
     });
