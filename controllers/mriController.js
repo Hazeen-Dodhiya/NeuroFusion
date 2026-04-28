@@ -10,14 +10,15 @@ exports.uploadMRI = async (req, res) => {
 
     const form = new FormData();
 
-    form.append("data", file.buffer, {
+    // 🔥 THIS IS THE FIX (must be "file")
+    form.append("file", file.buffer, {
       filename: file.originalname,
+      contentType: file.mimetype,
     });
 
-    form.append("data", "Attention Rollout");
-    form.append("data", "6");
+    form.append("xai_method", "Attention Rollout");
+    form.append("top_k", "6");
 
-    // 🔥 BUILT-IN FETCH (NO IMPORT)
     const response = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
       {
@@ -30,13 +31,27 @@ exports.uploadMRI = async (req, res) => {
 
     console.log("RAW RESPONSE:", json);
 
-    return res.json(json);
+    if (!json.data) {
+      throw new Error(JSON.stringify(json));
+    }
+
+    const [markdown, probabilities, heatmap] = json.data;
+
+    return res.json({
+      success: true,
+      result: {
+        markdown,
+        probabilities,
+        heatmap,
+      },
+    });
 
   } catch (err) {
-    console.error(err);
+    console.error("ERROR:", err);
+
     return res.status(500).json({
       success: false,
-      error: err.message
+      error: err.message,
     });
   }
 };
