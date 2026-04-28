@@ -8,33 +8,26 @@ exports.uploadMRI = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const client = await Client.connect(
-      "hehehanz-4156-1/slicevit"
-    );
+    const client = await Client.connect("hehehanz-4156-1/slicevit");
 
-    // 🔥 IMPORTANT: inspect correct API first time
-    const api = await client.view_api();
-    console.log(api);
-
-    // 🔥 USE CORRECT FUNCTION (usually fn_index 0)
-    const result = await client.predict(0, {
-      file: file.buffer,
-      xai_method: "Attention Rollout",
-      top_k: 6,
-    });
+    const result = await client.predict("/analyse", [
+      file.buffer,
+      "Attention Rollout",
+      6
+    ]);
 
     console.log("RESULT:", result);
 
     return res.json({
       success: true,
-      result,
+      result
     });
 
   } catch (err) {
     console.error("ERROR:", err);
     return res.status(500).json({
       success: false,
-      error: err.message,
+      error: err.message
     });
   }
 };
