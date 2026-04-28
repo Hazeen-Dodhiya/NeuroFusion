@@ -1,45 +1,37 @@
 const axios = require("axios");
-const FormData = require("form-data");
-const { Readable } = require("stream");
 
-// 🔥 HARD-CODED FILE ID
-const FILE_ID = "1T45lOt3Mnh2RBt0la48LZecaOzF7Plmh";
-
-async function downloadFromDrive(fileId) {
-  const url = `https://drive.google.com/uc?export=download&id=${fileId}`;
-
-  const response = await axios.get(url, {
-    responseType: "arraybuffer",
-  });
-
-  return Buffer.from(response.data);
-}
+// ❗ DO NOT use form-data package
 
 exports.uploadMRI = async (req, res) => {
   try {
-    // 🔥 STEP 1: always fetch same file
-    const buffer = await downloadFromDrive(FILE_ID);
+    const FILE_ID = "1T45lOt3Mnh2RBt0la48LZecaOzF7Plmh";
 
-    // 🔥 STEP 2: build form-data
+    const url = `https://drive.google.com/uc?export=download&id=${FILE_ID}`;
+
+    // download file
+    const fileRes = await axios.get(url, {
+      responseType: "arraybuffer",
+    });
+
+    const fileBuffer = Buffer.from(fileRes.data);
+
+    // 🔥 USE fetch FormData (native)
     const form = new FormData();
 
-    const stream = Readable.from(buffer);
-
-    form.append("file", stream, {
-      filename: "mri.npz",
-      contentType: "application/octet-stream",
-    });
+    form.append(
+      "file",
+      new Blob([fileBuffer]),
+      "mri.npz"
+    );
 
     form.append("xai_method", "Attention Rollout");
     form.append("top_k", "6");
 
-    // 🔥 STEP 3: call model
     const response = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
       {
         method: "POST",
-        headers: form.getHeaders(),
-        body: form,
+        body: form, // NO headers needed
       }
     );
 
@@ -47,11 +39,7 @@ exports.uploadMRI = async (req, res) => {
 
     console.log("RAW RESPONSE:", json);
 
-    // 🔥 STEP 4: return result
-    return res.json({
-      success: true,
-      result: json,
-    });
+    return res.json(json);
 
   } catch (err) {
     console.error("ERROR:", err);
