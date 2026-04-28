@@ -1,5 +1,5 @@
 const { Client } = require("@gradio/client");
-const FormData = require("form-data");
+const NodeFormData = require("form-data");
 const fetch = require("node-fetch");
 
 exports.uploadMRI = async (req, res) => {
@@ -10,14 +10,16 @@ exports.uploadMRI = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // ── Step 1: Upload the file manually to Gradio's /upload endpoint ──
-    // This preserves the original filename (with .nii/.gz/.npz extension)
-    // which is what Gradio uses for file type validation
-    const form = new FormData();
+    console.log("Received file:", file.originalname, "size:", file.size);
+
+    // ── Step 1: Upload file to Gradio /upload endpoint with correct filename ──
+    const form = new NodeFormData();
     form.append("files", file.buffer, {
-      filename: file.originalname,   // e.g. "brain.nii.gz" — extension MUST be here
+      filename: file.originalname,
       contentType: "application/octet-stream",
     });
+
+    console.log("Uploading to Gradio...");
 
     const uploadRes = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/upload",
@@ -25,32 +27,43 @@ exports.uploadMRI = async (req, res) => {
         method: "POST",
         body: form,
         headers: form.getHeaders(),
+        timeout: 60000, // 60s timeout
       }
     );
 
     if (!uploadRes.ok) {
       const text = await uploadRes.text();
-      throw new Error(`Upload failed: ${uploadRes.status} — ${text}`);
+      throw new Error(`Gradio upload failed: ${uploadRes.status} — ${text}`);
     }
 
     const uploadedPaths = await uploadRes.json();
-    // uploadedPaths is an array like: ["tmp/abc123/brain.nii.gz"]
-    console.log("Uploaded file path:", uploadedPaths);
+    console.log("Gradio upload success:", uploadedPaths);
 
-    // ── Step 2: Call /analyse with the server-side file reference ──
+    if (!uploadedPaths || uploadedPaths.length === 0) {
+      throw new Error("Gradio returned empty upload paths");
+    }
+
+    // ── Step 2: Run prediction using the uploaded file reference ──
+    console.log("Connecting to Gradio client...");
     const client = await Client.connect("hehehanz-4156-1/slicevit");
 
+    console.log("Running prediction...");
     const result = await client.predict("/analyse", [
-      { path: uploadedPaths[0], orig_name: file.originalname },  // file ref
-      "Attention Rollout",  // xai_method
-      6,                    // top_k
+      { path: uploadedPaths[0], orig_name: file.originalname },
+      "Attention Rollout",
+      6,
     ]);
 
     console.log("RESULT:", result.data);
 
+    // result.data = [markdownString, { CN: 0.82, PAD: 0.18 }, heatmapFigure]
+    const [markdownResult, probabilities, heatmap] = result.data;
+
     return res.json({
       success: true,
-      result: result.data,
+      markdownResult,
+      probabilities,   // e.g. { CN: 0.82, PAD: 0.18 }
+      heatmap,
     });
 
   } catch (err) {
