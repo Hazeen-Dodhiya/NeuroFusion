@@ -1,31 +1,44 @@
+const axios = require("axios");
 const FormData = require("form-data");
 const { Readable } = require("stream");
 
+// 🔥 HARD-CODED FILE ID
+const FILE_ID = "1T45lOt3Mnh2RBt0la48LZecaOzF7Plmh";
+
+async function downloadFromDrive(fileId) {
+  const url = `https://drive.google.com/uc?export=download&id=${fileId}`;
+
+  const response = await axios.get(url, {
+    responseType: "arraybuffer",
+  });
+
+  return Buffer.from(response.data);
+}
+
 exports.uploadMRI = async (req, res) => {
   try {
-    const file = req.file;
+    // 🔥 STEP 1: always fetch same file
+    const buffer = await downloadFromDrive(FILE_ID);
 
-    if (!file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
-
+    // 🔥 STEP 2: build form-data
     const form = new FormData();
 
-    // 🔥 KEY FIX: convert buffer → stream (REAL FILE)
-    const stream = Readable.from(file.buffer);
+    const stream = Readable.from(buffer);
 
     form.append("file", stream, {
-      filename: file.originalname,
-      contentType: file.mimetype,
+      filename: "mri.npz",
+      contentType: "application/octet-stream",
     });
 
     form.append("xai_method", "Attention Rollout");
     form.append("top_k", "6");
 
+    // 🔥 STEP 3: call model
     const response = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
       {
         method: "POST",
+        headers: form.getHeaders(),
         body: form,
       }
     );
@@ -34,19 +47,10 @@ exports.uploadMRI = async (req, res) => {
 
     console.log("RAW RESPONSE:", json);
 
-    if (!json.data) {
-      throw new Error(JSON.stringify(json));
-    }
-
-    const [markdown, probabilities, heatmap] = json.data;
-
+    // 🔥 STEP 4: return result
     return res.json({
       success: true,
-      result: {
-        markdown,
-        probabilities,
-        heatmap,
-      },
+      result: json,
     });
 
   } catch (err) {
