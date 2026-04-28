@@ -8,15 +8,30 @@ exports.uploadMRI = async (req, res) => {
   try {
     const file = req.file;
 
-    // ❌ No file
     if (!file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    // ✅ Allowed file types
+    const allowedExtensions = [".nii", ".nii.gz", ".npz", ".dcm"];
+
+    const isValid = allowedExtensions.some(ext =>
+      file.originalname.toLowerCase().endsWith(ext)
+    );
+
+    if (!isValid) {
+      return res.status(400).json({
+        message: "Invalid file type. Only .nii, .nii.gz, .npz, .dcm allowed",
+      });
+    }
+
+    console.log("Uploading file:", file.originalname);
+    console.log("File size:", file.size);
+
     // 🔹 Convert buffer → base64
     const base64File = file.buffer.toString("base64");
 
-    // 🔹 Call Hugging Face API
+    // 🔹 Send to HuggingFace
     const response = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/run/predict",
       {
@@ -27,43 +42,50 @@ exports.uploadMRI = async (req, res) => {
         body: JSON.stringify({
           data: [
             {
-              name: file.originalname || "volume.nii.gz",
-              data: `data:application/octet-stream;base64,${base64File}`,
-              is_file: false,
+              // ✅ IMPORTANT: keep original extension (for .dcm support)
+              name: file.originalname,
+              data: base64File,
+              is_file: true,
             },
-            "Attention Rollout", // or "GradCAM"
+            "Attention Rollout",
             6,
           ],
         }),
       }
     );
 
-    const json = await response.json();
+    const text = await response.text();
+    console.log("RAW RESPONSE:", text);
 
-    // 🔥 Debug full response if needed
-    // console.log(json);
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (err) {
+      throw new Error("Invalid JSON response from model");
+    }
 
-    const [markdownResult, probabilities, heatmap] = json.data || [];
+    if (!json.data) {
+      throw new Error("Model did not return expected data");
+    }
 
-    // 🔥 Print in backend console
+    const [markdownResult, probabilities, heatmap] = json.data;
+
+    // 🔥 Console output
     console.log("=== MRI ANALYSIS RESULT ===");
     console.log("Markdown:", markdownResult);
     console.log("Probabilities:", probabilities);
-    console.log("Heatmap:", heatmap);
 
-    // 🔹 Send response to frontend
     return res.status(200).json({
       success: true,
       message: "MRI analysed successfully",
       result: {
         markdown: markdownResult,
         probabilities,
-        // heatmap (optional, large object)
       },
     });
 
   } catch (err) {
-    console.error("❌ MRI ANALYSIS ERROR:", err);
+    console.error("❌ ERROR:", err.message);
 
     return res.status(500).json({
       success: false,
@@ -72,7 +94,6 @@ exports.uploadMRI = async (req, res) => {
     });
   }
 };
-
 
 // exports.uploadMRI = async (req, res) => {
 //   try {
