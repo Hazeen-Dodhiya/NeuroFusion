@@ -149,8 +149,8 @@ exports.forgotPassword = async (req, res) => {
 
     await user.save();
 
-    const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
-
+    // const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetLink = `https://neurofusion.me/reset-password/${resetToken}`;
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
