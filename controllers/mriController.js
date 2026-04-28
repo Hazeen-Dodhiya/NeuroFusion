@@ -1,6 +1,30 @@
 const { Client } = require("@gradio/client");
 const NodeFormData = require("form-data");
-const fetch = require("node-fetch");
+const https = require("https");
+
+// Promisified https POST that works with form-data
+function httpsPost(url, form) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const options = {
+      hostname: parsedUrl.hostname,
+      path: parsedUrl.pathname,
+      method: "POST",
+      headers: form.getHeaders(),
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        resolve({ status: res.statusCode, body: data });
+      });
+    });
+
+    req.on("error", reject);
+    form.pipe(req);
+  });
+}
 
 exports.uploadMRI = async (req, res) => {
   try {
@@ -12,7 +36,7 @@ exports.uploadMRI = async (req, res) => {
 
     console.log("Received file:", file.originalname, "size:", file.size);
 
-    // ── Step 1: Upload file to Gradio /upload endpoint with correct filename ──
+    // ── Step 1: Upload file to Gradio /upload endpoint ──
     const form = new NodeFormData();
     form.append("files", file.buffer, {
       filename: file.originalname,
@@ -21,29 +45,26 @@ exports.uploadMRI = async (req, res) => {
 
     console.log("Uploading to Gradio...");
 
-    const uploadRes = await fetch(
+    const uploadResponse = await httpsPost(
       "https://hehehanz-4156-1-slicevit.hf.space/upload",
-      {
-        method: "POST",
-        body: form,
-        headers: form.getHeaders(),
-        timeout: 60000, // 60s timeout
-      }
+      form
     );
 
-    if (!uploadRes.ok) {
-      const text = await uploadRes.text();
-      throw new Error(`Gradio upload failed: ${uploadRes.status} — ${text}`);
+    console.log("Upload status:", uploadResponse.status);
+    console.log("Upload body:", uploadResponse.body);
+
+    if (uploadResponse.status !== 200) {
+      throw new Error(`Gradio upload failed: ${uploadResponse.status} — ${uploadResponse.body}`);
     }
 
-    const uploadedPaths = await uploadRes.json();
+    const uploadedPaths = JSON.parse(uploadResponse.body);
     console.log("Gradio upload success:", uploadedPaths);
 
     if (!uploadedPaths || uploadedPaths.length === 0) {
       throw new Error("Gradio returned empty upload paths");
     }
 
-    // ── Step 2: Run prediction using the uploaded file reference ──
+    // ── Step 2: Run prediction ──
     console.log("Connecting to Gradio client...");
     const client = await Client.connect("hehehanz-4156-1/slicevit");
 
@@ -56,13 +77,12 @@ exports.uploadMRI = async (req, res) => {
 
     console.log("RESULT:", result.data);
 
-    // result.data = [markdownString, { CN: 0.82, PAD: 0.18 }, heatmapFigure]
     const [markdownResult, probabilities, heatmap] = result.data;
 
     return res.json({
       success: true,
       markdownResult,
-      probabilities,   // e.g. { CN: 0.82, PAD: 0.18 }
+      probabilities,
       heatmap,
     });
 
