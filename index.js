@@ -16,7 +16,7 @@ const app = express()
 //middlewares
 app.use(
   cors({
-    origin: ["http://localhost:3000","https://neuro-fusion-front.vercel.app", "https://neurofusion.me", "https://www.neurofusion.me"],
+    origin: ["http://localhost:3000","https://neuro-fusion-front.vercel.app", "https://neurofusion.me"],
     credentials: true,
   })
 );
