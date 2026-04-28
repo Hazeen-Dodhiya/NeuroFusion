@@ -2,8 +2,6 @@ const MRI = require("../models/MRI");
 const drive = require("../config/googleDrive");
 const { Readable } = require("stream");
 
-const fetch = require("node-fetch");
-
 exports.uploadMRI = async (req, res) => {
   try {
     const file = req.file;
@@ -31,7 +29,7 @@ exports.uploadMRI = async (req, res) => {
     // 🔹 Convert buffer → base64
     const base64File = file.buffer.toString("base64");
 
-    // 🔹 Send to HuggingFace
+    // 🔹 Send to Hugging Face (NO IMPORT NEEDED)
     const response = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/run/predict",
       {
@@ -42,7 +40,6 @@ exports.uploadMRI = async (req, res) => {
         body: JSON.stringify({
           data: [
             {
-              // ✅ IMPORTANT: keep original extension (for .dcm support)
               name: file.originalname,
               data: base64File,
               is_file: true,
@@ -54,6 +51,7 @@ exports.uploadMRI = async (req, res) => {
       }
     );
 
+    // 🔥 Read raw response for debugging
     const text = await response.text();
     console.log("RAW RESPONSE:", text);
 
@@ -85,7 +83,7 @@ exports.uploadMRI = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ ERROR:", err.message);
+    console.error("❌ ERROR:", err);
 
     return res.status(500).json({
       success: false,
