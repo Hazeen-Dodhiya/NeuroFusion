@@ -1,4 +1,5 @@
 const { Client } = require("@gradio/client");
+const fs = require("fs");
 
 exports.uploadMRI = async (req, res) => {
   try {
@@ -8,12 +9,17 @@ exports.uploadMRI = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const client = await Client.connect("hehehanz-4156-1/slicevit");
+    // 🔥 Save temp file (IMPORTANT FIX)
+    const tempPath = `/tmp/${file.originalname}`;
+    fs.writeFileSync(tempPath, file.buffer);
 
+    const client = await Client.connect(
+      "hehehanz-4156-1/slicevit"
+    );
+
+    // 🔥 ONLY 1 ARGUMENT (CRITICAL FIX)
     const result = await client.predict("/analyse", [
-      file.buffer,
-      "Attention Rollout",
-      6
+      tempPath
     ]);
 
     console.log("RESULT:", result);
