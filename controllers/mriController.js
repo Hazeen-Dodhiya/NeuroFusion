@@ -1,5 +1,3 @@
-const { Client } = require("@gradio/client");
-
 exports.uploadMRI = async (req, res) => {
   try {
     const file = req.file;
@@ -8,20 +6,45 @@ exports.uploadMRI = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // 🔥 connect INSIDE async function (FIX)
-    const client = await Client.connect("hehehanz-4156-1/slicevit");
+    const base64File = file.buffer.toString("base64");
 
-    const result = await client.predict("/predict", {
-      file: file.buffer,
-      xai_method: "Attention Rollout",
-      top_k: 6,
-    });
+    const response = await fetch(
+      "https://hehehanz-4156-1-slicevit.hf.space/run/predict",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          data: [
+            {
+              name: file.originalname,
+              data: base64File,
+              is_file: true,
+            },
+            "Attention Rollout",
+            6,
+          ],
+        }),
+      }
+    );
 
-    console.log("RESULT:", result);
+    const json = await response.json();
+
+    console.log("RAW RESPONSE:", json);
+
+    if (!json.data) {
+      throw new Error("Invalid model response");
+    }
+
+    const [markdownResult, probabilities] = json.data;
 
     return res.json({
       success: true,
-      result,
+      result: {
+        markdown: markdownResult,
+        probabilities,
+      },
     });
 
   } catch (err) {
