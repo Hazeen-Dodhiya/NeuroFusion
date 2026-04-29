@@ -126,7 +126,7 @@ exports.getMRIResults = async (req, res) => {
     // 🔥 get all MRIs of this user (latest first)
     const mris = await MRI.find({ userId })
       .sort({ createdAt: -1 })
-      .select("fileName prediction probabilities analysedAt fileUrl");
+      .select("_id fileName prediction probabilities analysedAt fileUrl");
 
     if (!mris.length) {
       return res.status(404).json({
@@ -150,6 +150,52 @@ exports.getMRIResults = async (req, res) => {
     });
   }
 };
+
+
+exports.deleteMRI = async (req, res) => {
+  try {
+    const userId = req.user.id; // from JWT middleware
+    const { id } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "MRI id required",
+      });
+    }
+
+    const mri = await MRI.findById(id);
+
+    if (!mri) {
+      return res.status(404).json({
+        success: false,
+        message: "MRI not found",
+      });
+    }
+
+    // 🔒 IMPORTANT: match with your schema (userId)
+    if (mri.userId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    await MRI.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: "MRI deleted successfully",
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
 
 
 

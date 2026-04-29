@@ -6,7 +6,7 @@ const googleOnly = require("../middelware/googleOnly");
 const upload = require("../middelware/upload");
 
 
-const { uploadMRI, getMRIResults } = require("../controllers/mriController");
+const { uploadMRI, getMRIResults, deleteMRI } = require("../controllers/mriController");
 
 router.get(
   "/get_results",
@@ -21,5 +21,10 @@ router.post(
   upload.single("mri"),
   uploadMRI
 );
-
+router.delete(
+  "/remove", 
+  auth, 
+  googleOnly, 
+  deleteMRI
+);
 module.exports = router;
