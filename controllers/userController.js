@@ -122,9 +122,8 @@ exports.updateProfile = async (req, res) => {
 };
 
 //forget pass
-import { Resend } from "resend";
-import crypto from "crypto";
-import User from "../models/User.js"; // adjust path if needed
+const { Resend } = require("resend");
+
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
