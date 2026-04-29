@@ -152,9 +152,54 @@ exports.getMRIResults = async (req, res) => {
 };
 
 
+// exports.deleteMRI = async (req, res) => {
+//   try {
+//     const userId = req.user.id; // from JWT middleware
+//     const { id } = req.body;
+
+//     if (!id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "MRI id required",
+//       });
+//     }
+
+//     const mri = await MRI.findById(id);
+
+//     if (!mri) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "MRI not found",
+//       });
+//     }
+
+//     // 🔒 IMPORTANT: match with your schema (userId)
+//     if (mri.userId.toString() !== userId) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Unauthorized",
+//       });
+//     }
+
+//     await MRI.findByIdAndDelete(id);
+
+//     res.json({
+//       success: true,
+//       message: "MRI deleted successfully",
+//     });
+
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//     });
+//   }
+// }
+
 exports.deleteMRI = async (req, res) => {
   try {
-    const userId = req.user.id; // from JWT middleware
+    const userId = req.user.id;
     const { id } = req.body;
 
     if (!id) {
@@ -173,7 +218,7 @@ exports.deleteMRI = async (req, res) => {
       });
     }
 
-    // 🔒 IMPORTANT: match with your schema (userId)
+    // 🔒 ownership check
     if (mri.userId.toString() !== userId) {
       return res.status(403).json({
         success: false,
@@ -181,23 +226,36 @@ exports.deleteMRI = async (req, res) => {
       });
     }
 
+    // ==============================
+    // 🗑 STEP 1: Delete from Google Drive
+    // ==============================
+    try {
+      await drive.files.delete({
+        fileId: mri.filePath, // ✅ this is your Google Drive fileId
+      });
+    } catch (driveErr) {
+      console.error("Google Drive delete failed:", driveErr.message);
+      // You can choose to continue or stop here
+    }
+
+    // ==============================
+    // 🗑 STEP 2: Delete from MongoDB
+    // ==============================
     await MRI.findByIdAndDelete(id);
 
-    res.json({
+    return res.json({
       success: true,
-      message: "MRI deleted successfully",
+      message: "MRI deleted successfully (Drive + DB)",
     });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     });
   }
-}
-
-
+};
 
 
 
