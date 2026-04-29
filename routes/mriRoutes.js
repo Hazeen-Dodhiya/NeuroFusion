@@ -5,8 +5,15 @@ const auth = require("../middelware/auth");
 const googleOnly = require("../middelware/googleOnly");
 const upload = require("../middelware/upload");
 
-const { uploadMRI } = require("../controllers/mriController");
 
+const { uploadMRI, getMRIResults } = require("../controllers/mriController");
+
+router.get(
+  "/get_results",
+  auth,
+  googleOnly,
+  getMRIResults
+);
 router.post(
   "/upload",
   auth,

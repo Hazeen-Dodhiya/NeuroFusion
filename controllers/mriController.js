@@ -119,6 +119,40 @@ exports.uploadMRI = async (req, res) => {
 
 
 
+const MRI = require("../models/MRI");
+
+exports.getMRIResults = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // 🔥 get all MRIs of this user (latest first)
+    const mris = await MRI.find({ userId })
+      .sort({ createdAt: -1 })
+      .select("fileName prediction probabilities analysedAt fileUrl");
+
+    if (!mris.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No MRI results found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      count: mris.length,
+      results: mris,
+    });
+
+  } catch (err) {
+    console.error("ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+};
+
 
 
 
