@@ -127,7 +127,7 @@ const { Resend } = require("resend");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export.forgotPassword = async (req, res) => {
+exports.forgotPassword = async (req, res) => {
   try {
     console.log("📩 Forgot password request received");
 
