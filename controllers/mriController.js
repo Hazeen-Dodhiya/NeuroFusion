@@ -87,7 +87,12 @@ exports.uploadMRI = async (req, res) => {
     );
 
     const result = await hfResponse.json();
+    // 🔥 SAVE RESULT IN DB
+    newMRI.prediction = result.prediction;
+    newMRI.probabilities = result.probabilities;
+    newMRI.analysedAt = new Date();
 
+    await newMRI.save();
     // ==============================
     // 🧠 STEP 5: LOG RESULT (THIS WAS YOUR ISSUE BEFORE)
     // ==============================
