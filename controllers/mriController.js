@@ -119,8 +119,6 @@ exports.uploadMRI = async (req, res) => {
 
 
 
-const MRI = require("../models/MRI");
-
 exports.getMRIResults = async (req, res) => {
   try {
     const userId = req.user._id;
