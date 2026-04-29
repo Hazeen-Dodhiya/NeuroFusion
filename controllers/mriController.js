@@ -97,10 +97,6 @@ exports.uploadMRI = async (req, res) => {
     // 🧠 STEP 5: LOG RESULT (THIS WAS YOUR ISSUE BEFORE)
     // ==============================
 
-    console.log("=== MRI ANALYSIS RESULT ===");
-    console.log("Prediction:", result.prediction);
-    console.log("Probabilities:", result.probabilities);
-
     // ==============================
     // 🧠 STEP 6: RESPONSE TO FRONTEND
     // ==============================
