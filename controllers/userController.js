@@ -175,7 +175,7 @@ exports.forgotPassword = async (req, res) => {
     console.log("📤 Sending email via Resend...");
 
     const response = await resend.emails.send({
-      from: "onboarding@resend.dev", // default sender (works instantly)
+      from: "no-reply@neurofusion.me", // default sender (works instantly)
       to: user.email,
       subject: "Reset Password",
       html: `
