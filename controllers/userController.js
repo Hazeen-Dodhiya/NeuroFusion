@@ -122,7 +122,13 @@ exports.updateProfile = async (req, res) => {
 };
 
 //forget pass
-exports.forgotPassword = async (req, res) => {
+import { Resend } from "resend";
+import crypto from "crypto";
+import User from "../models/User.js"; // adjust path if needed
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export const forgotPassword = async (req, res) => {
   try {
     console.log("📩 Forgot password request received");
 
@@ -150,9 +156,6 @@ exports.forgotPassword = async (req, res) => {
       .update(resetToken)
       .digest("hex");
 
-    console.log("🔑 Reset token generated");
-
-    // reset previous tokens
     user.resetPasswordToken = hashedToken;
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
     user.resetPasswordUsed = false;
@@ -168,63 +171,23 @@ exports.forgotPassword = async (req, res) => {
     console.log("🔗 Reset link:", resetLink);
 
     // ==============================
-    // 📧 Setup transporter
+    // 📧 Send Email via Resend
     // ==============================
-    console.log("📧 Setting up transporter...");
+    console.log("📤 Sending email via Resend...");
 
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+    const response = await resend.emails.send({
+      from: "onboarding@resend.dev", // default sender (works instantly)
+      to: user.email,
+      subject: "Reset Password",
+      html: `
+        <h2>Password Reset Request</h2>
+        <p>Click below to reset your password:</p>
+        <a href="${resetLink}">${resetLink}</a>
+        <p>This link expires in 10 minutes.</p>
+      `,
     });
 
-    console.log("📧 EMAIL_USER:", process.env.EMAIL_USER);
-    console.log(
-      "📧 EMAIL_PASS:",
-      process.env.EMAIL_PASS ? "EXISTS ✅" : "MISSING ❌"
-    );
-
-    // ==============================
-    // 🧪 Verify SMTP connection
-    // ==============================
-    try {
-      await transporter.verify();
-      console.log("✅ SMTP server is ready");
-    } catch (verifyErr) {
-      console.error("❌ SMTP verification failed:", verifyErr.message);
-    }
-
-    // ==============================
-    // 📤 Send email
-    // ==============================
-    console.log("📤 Sending email...");
-
-    try {
-      const info = await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: user.email,
-        subject: "Reset Password",
-        html: `
-          <h2>Password Reset Request</h2>
-          <p>Click below to reset your password:</p>
-          <a href="${resetLink}">${resetLink}</a>
-          <p>This link expires in 10 minutes.</p>
-        `,
-      });
-
-      console.log("✅ Email sent:", info.response);
-
-    } catch (mailErr) {
-      console.error("❌ Email sending failed:", mailErr);
-      return res.status(500).json({
-        error: "Email failed to send",
-        details: mailErr.message,
-      });
-    }
+    console.log("✅ Email sent:", response);
 
     // ==============================
     // ✅ Final response
@@ -232,7 +195,7 @@ exports.forgotPassword = async (req, res) => {
     res.json({ message: "Reset link sent to email" });
 
   } catch (error) {
-    console.error("🔥 SERVER ERROR:", error);
+    console.error("❌ ERROR:", error);
     res.status(500).json({ error: error.message });
   }
 };
