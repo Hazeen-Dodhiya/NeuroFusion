@@ -1,7 +1,6 @@
 const MRI = require("../models/MRI");
 const drive = require("../config/googleDrive");
 const { Readable } = require("stream");
-const axios = require("axios");
 
 exports.uploadMRI = async (req, res) => {
   try {
@@ -22,7 +21,7 @@ exports.uploadMRI = async (req, res) => {
     const fileName = `MRI_${userId}_${uploadNumber}`;
     const stream = Readable.from(file.buffer);
 
-    const driveRes = await drive.files.create({
+    const driveUpload = await drive.files.create({
       requestBody: {
         name: fileName,
         parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
@@ -33,7 +32,7 @@ exports.uploadMRI = async (req, res) => {
       },
     });
 
-    const fileId = driveRes.data.id;
+    const fileId = driveUpload.data.id;
 
     const fileUrl = `https://drive.google.com/file/d/${fileId}/view`;
 
@@ -51,16 +50,18 @@ exports.uploadMRI = async (req, res) => {
     });
 
     // ==============================
-    // 🧠 STEP 3: Download SAME file from Drive
+    // 🧠 STEP 3: Download file from Drive (CORRECT WAY)
     // ==============================
 
-    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    const driveDownload = await drive.files.get(
+      {
+        fileId: fileId,
+        alt: "media",
+      },
+      { responseType: "arraybuffer" }
+    );
 
-    const fileRes = await axios.get(downloadUrl, {
-      responseType: "arraybuffer",
-    });
-
-    const fileBuffer = Buffer.from(fileRes.data);
+    const fileBuffer = Buffer.from(driveDownload.data);
 
     // ==============================
     // 🧠 STEP 4: Send to HuggingFace model
@@ -68,11 +69,16 @@ exports.uploadMRI = async (req, res) => {
 
     const form = new FormData();
 
-    form.append("file", new Blob([fileBuffer]), file.originalname);
+    form.append(
+      "file",
+      new Blob([fileBuffer]),
+      file.originalname // keeps extension (.npz, .nii, etc)
+    );
+
     form.append("xai_method", "Attention Rollout");
     form.append("top_k", "6");
 
-    const response = await fetch(
+    const hfResponse = await fetch(
       "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
       {
         method: "POST",
@@ -80,10 +86,10 @@ exports.uploadMRI = async (req, res) => {
       }
     );
 
-    const result = await response.json();
+    const result = await hfResponse.json();
 
     // ==============================
-    // 🧠 STEP 5: LOG RESULT
+    // 🧠 STEP 5: LOG RESULT (THIS WAS YOUR ISSUE BEFORE)
     // ==============================
 
     console.log("=== MRI ANALYSIS RESULT ===");
@@ -91,7 +97,7 @@ exports.uploadMRI = async (req, res) => {
     console.log("Probabilities:", result.probabilities);
 
     // ==============================
-    // 🧠 STEP 6: Respond to frontend
+    // 🧠 STEP 6: RESPONSE TO FRONTEND
     // ==============================
 
     return res.status(201).json({
@@ -109,7 +115,6 @@ exports.uploadMRI = async (req, res) => {
     });
   }
 };
-
 
 
 
