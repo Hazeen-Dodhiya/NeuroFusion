@@ -124,19 +124,25 @@ exports.updateProfile = async (req, res) => {
 //forget pass
 exports.forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    console.log("📩 Forgot password request received");
 
+    const { email } = req.body;
+    console.log("➡️ Email received:", email);
+
+    // ==============================
+    // 🔍 Find user
+    // ==============================
     const user = await User.findOne({ email });
+
+    console.log("👤 User found:", user ? user.email : "NOT FOUND");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // reset only if not already active (optional cleanup safety)
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-    user.resetPasswordUsed = false;
-
+    // ==============================
+    // 🔐 Generate token
+    // ==============================
     const resetToken = crypto.randomBytes(32).toString("hex");
 
     const hashedToken = crypto
@@ -144,39 +150,147 @@ exports.forgotPassword = async (req, res) => {
       .update(resetToken)
       .digest("hex");
 
+    console.log("🔑 Reset token generated");
+
+    // reset previous tokens
     user.resetPasswordToken = hashedToken;
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    user.resetPasswordUsed = false;
 
     await user.save();
 
-    // const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
+    console.log("💾 Token saved in DB");
+
+    // ==============================
+    // 🔗 Reset link
+    // ==============================
     const resetLink = `https://neurofusion.me/reset-password/${resetToken}`;
+    console.log("🔗 Reset link:", resetLink);
+
+    // ==============================
+    // 📧 Setup transporter
+    // ==============================
+    console.log("📧 Setting up transporter...");
+
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
     });
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: "Reset Password",
-      html: `
-        <h2>Password Reset Request</h2>
-        <p>Click below to reset your password:</p>
-        <a href="${resetLink}">${resetLink}</a>
-        <p>This link expires in 10 minutes.</p>
-      `,
-    });
+    console.log("📧 EMAIL_USER:", process.env.EMAIL_USER);
+    console.log(
+      "📧 EMAIL_PASS:",
+      process.env.EMAIL_PASS ? "EXISTS ✅" : "MISSING ❌"
+    );
 
+    // ==============================
+    // 🧪 Verify SMTP connection
+    // ==============================
+    try {
+      await transporter.verify();
+      console.log("✅ SMTP server is ready");
+    } catch (verifyErr) {
+      console.error("❌ SMTP verification failed:", verifyErr.message);
+    }
+
+    // ==============================
+    // 📤 Send email
+    // ==============================
+    console.log("📤 Sending email...");
+
+    try {
+      const info = await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: user.email,
+        subject: "Reset Password",
+        html: `
+          <h2>Password Reset Request</h2>
+          <p>Click below to reset your password:</p>
+          <a href="${resetLink}">${resetLink}</a>
+          <p>This link expires in 10 minutes.</p>
+        `,
+      });
+
+      console.log("✅ Email sent:", info.response);
+
+    } catch (mailErr) {
+      console.error("❌ Email sending failed:", mailErr);
+      return res.status(500).json({
+        error: "Email failed to send",
+        details: mailErr.message,
+      });
+    }
+
+    // ==============================
+    // ✅ Final response
+    // ==============================
     res.json({ message: "Reset link sent to email" });
 
   } catch (error) {
+    console.error("🔥 SERVER ERROR:", error);
     res.status(500).json({ error: error.message });
   }
 };
+// exports.forgotPassword = async (req, res) => {
+//   try {
+//     const { email } = req.body;
+
+//     const user = await User.findOne({ email });
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // reset only if not already active (optional cleanup safety)
+//     user.resetPasswordToken = undefined;
+//     user.resetPasswordExpire = undefined;
+//     user.resetPasswordUsed = false;
+
+//     const resetToken = crypto.randomBytes(32).toString("hex");
+
+//     const hashedToken = crypto
+//       .createHash("sha256")
+//       .update(resetToken)
+//       .digest("hex");
+
+//     user.resetPasswordToken = hashedToken;
+//     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+//     await user.save();
+
+//     // const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
+//     const resetLink = `https://neurofusion.me/reset-password/${resetToken}`;
+//     const transporter = nodemailer.createTransport({
+//       service: "gmail",
+//       auth: {
+//         user: process.env.EMAIL_USER,
+//         pass: process.env.EMAIL_PASS,
+//       },
+//     });
+
+//     await transporter.sendMail({
+//       from: process.env.EMAIL_USER,
+//       to: user.email,
+//       subject: "Reset Password",
+//       html: `
+//         <h2>Password Reset Request</h2>
+//         <p>Click below to reset your password:</p>
+//         <a href="${resetLink}">${resetLink}</a>
+//         <p>This link expires in 10 minutes.</p>
+//       `,
+//     });
+
+//     res.json({ message: "Reset link sent to email" });
+
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 //reset link
 exports.resetPassword = async (req, res) => {
