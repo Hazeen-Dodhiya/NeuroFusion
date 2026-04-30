@@ -124,7 +124,7 @@ const FormData = require("form-data");
 // ==============================
 // 🔥 HELPER: Get or create user folder
 // ==============================
-const getOrCreateUserFolder = async (userId) => {
+exports.uploadMRI= async (userId) => {
   try {
     const folderName = userId.toString();
 
