@@ -315,7 +315,7 @@ exports.uploadMRI = async (req, res) => {
     form.append("top_k", "6");
 
     const hfResponse = await fetch(
-      "https://hehehanz-4156-1-slicevit.hf.space/api/explain",
+      "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
       {
         method: "POST",
         body: form,
