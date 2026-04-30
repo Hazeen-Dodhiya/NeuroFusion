@@ -1,6 +1,6 @@
 const MRI = require("../models/MRI");
 const drive = require("../config/googleDrive");
-const { Readable } = require("stream");
+// const { Readable } = require("stream");
 
 // exports.uploadMRI = async (req, res) => {
 //   try {
@@ -118,6 +118,7 @@ const { Readable } = require("stream");
 // };
 
 
+const { Readable } = require("stream");
 const FormData = require("form-data");
 
 // ==============================
@@ -127,7 +128,6 @@ const getOrCreateUserFolder = async (userId) => {
   try {
     const folderName = userId.toString();
 
-    // 🔍 Check if folder already exists
     const query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
 
     const res = await drive.files.list({
@@ -136,10 +136,9 @@ const getOrCreateUserFolder = async (userId) => {
     });
 
     if (res.data.files.length > 0) {
-      return res.data.files[0].id; // ✅ existing folder
+      return res.data.files[0].id;
     }
 
-    // ❌ Create new folder
     const folder = await drive.files.create({
       requestBody: {
         name: folderName,
@@ -185,7 +184,7 @@ exports.uploadMRI = async (req, res) => {
     const driveUpload = await drive.files.create({
       requestBody: {
         name: fileName,
-        parents: [userFolderId], // ✅ changed to user folder
+        parents: [userFolderId], // ✅ user folder
       },
       media: {
         mimeType: file.mimetype,
@@ -194,7 +193,6 @@ exports.uploadMRI = async (req, res) => {
     });
 
     const fileId = driveUpload.data.id;
-
     const fileUrl = `https://drive.google.com/file/d/${fileId}/view`;
 
     // ==============================
@@ -223,15 +221,14 @@ exports.uploadMRI = async (req, res) => {
     const fileBuffer = Buffer.from(driveDownload.data);
 
     // ==============================
-    // 🧠 STEP 5: Send to HuggingFace model
+    // 🧠 STEP 5: Send to HuggingFace model (FIXED)
     // ==============================
     const form = new FormData();
 
-    form.append(
-      "file",
-      new Blob([fileBuffer]),
-      file.originalname
-    );
+    form.append("file", fileBuffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
 
     form.append("xai_method", "Attention Rollout");
     form.append("top_k", "6");
@@ -241,6 +238,7 @@ exports.uploadMRI = async (req, res) => {
       {
         method: "POST",
         body: form,
+        headers: form.getHeaders(), // ✅ important
       }
     );
 
@@ -273,39 +271,6 @@ exports.uploadMRI = async (req, res) => {
     });
   }
 };
-
-exports.getMRIResults = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    // 🔥 get all MRIs of this user (latest first)
-    const mris = await MRI.find({ userId })
-      .sort({ createdAt: -1 })
-      .select("_id fileName prediction probabilities analysedAt fileUrl");
-
-    if (!mris.length) {
-      return res.status(404).json({
-        success: false,
-        message: "No MRI results found",
-      });
-    }
-
-    return res.json({
-      success: true,
-      count: mris.length,
-      results: mris,
-    });
-
-  } catch (err) {
-    console.error("ERROR:", err);
-
-    return res.status(500).json({
-      success: false,
-      error: err.message,
-    });
-  }
-};
-
 
 // exports.deleteMRI = async (req, res) => {
 //   try {
