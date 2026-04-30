@@ -2,120 +2,120 @@ const MRI = require("../models/MRI");
 const drive = require("../config/googleDrive");
 const { Readable } = require("stream");
 
-exports.uploadMRI = async (req, res) => {
-  try {
-    const file = req.file;
-    const userId = req.user._id;
+// exports.uploadMRI = async (req, res) => {
+//   try {
+//     const file = req.file;
+//     const userId = req.user._id;
 
-    if (!file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
+//     if (!file) {
+//       return res.status(400).json({ message: "No file uploaded" });
+//     }
 
-    // ==============================
-    // 🧠 STEP 1: Upload to Google Drive
-    // ==============================
+//     // ==============================
+//     // 🧠 STEP 1: Upload to Google Drive
+//     // ==============================
 
-    const count = await MRI.countDocuments({ userId });
-    const uploadNumber = count + 1;
+//     const count = await MRI.countDocuments({ userId });
+//     const uploadNumber = count + 1;
 
-    const fileName = `MRI_${userId}_${uploadNumber}`;
-    const stream = Readable.from(file.buffer);
+//     const fileName = `MRI_${userId}_${uploadNumber}`;
+//     const stream = Readable.from(file.buffer);
 
-    const driveUpload = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
-      },
-      media: {
-        mimeType: file.mimetype,
-        body: stream,
-      },
-    });
+//     const driveUpload = await drive.files.create({
+//       requestBody: {
+//         name: fileName,
+//         parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+//       },
+//       media: {
+//         mimeType: file.mimetype,
+//         body: stream,
+//       },
+//     });
 
-    const fileId = driveUpload.data.id;
+//     const fileId = driveUpload.data.id;
 
-    const fileUrl = `https://drive.google.com/file/d/${fileId}/view`;
+//     const fileUrl = `https://drive.google.com/file/d/${fileId}/view`;
 
-    // ==============================
-    // 🧠 STEP 2: Save in DB
-    // ==============================
+//     // ==============================
+//     // 🧠 STEP 2: Save in DB
+//     // ==============================
 
-    const newMRI = await MRI.create({
-      userId,
-      originalName: file.originalname,
-      fileName,
-      filePath: fileId, // 🔥 IMPORTANT
-      fileUrl,
-      uploadNumber,
-    });
+//     const newMRI = await MRI.create({
+//       userId,
+//       originalName: file.originalname,
+//       fileName,
+//       filePath: fileId, // 🔥 IMPORTANT
+//       fileUrl,
+//       uploadNumber,
+//     });
 
-    // ==============================
-    // 🧠 STEP 3: Download file from Drive (CORRECT WAY)
-    // ==============================
+//     // ==============================
+//     // 🧠 STEP 3: Download file from Drive (CORRECT WAY)
+//     // ==============================
 
-    const driveDownload = await drive.files.get(
-      {
-        fileId: fileId,
-        alt: "media",
-      },
-      { responseType: "arraybuffer" }
-    );
+//     const driveDownload = await drive.files.get(
+//       {
+//         fileId: fileId,
+//         alt: "media",
+//       },
+//       { responseType: "arraybuffer" }
+//     );
 
-    const fileBuffer = Buffer.from(driveDownload.data);
+//     const fileBuffer = Buffer.from(driveDownload.data);
 
-    // ==============================
-    // 🧠 STEP 4: Send to HuggingFace model
-    // ==============================
+//     // ==============================
+//     // 🧠 STEP 4: Send to HuggingFace model
+//     // ==============================
 
-    const form = new FormData();
+//     const form = new FormData();
 
-    form.append(
-      "file",
-      new Blob([fileBuffer]),
-      file.originalname // keeps extension (.npz, .nii, etc)
-    );
+//     form.append(
+//       "file",
+//       new Blob([fileBuffer]),
+//       file.originalname // keeps extension (.npz, .nii, etc)
+//     );
 
-    form.append("xai_method", "Attention Rollout");
-    form.append("top_k", "6");
+//     form.append("xai_method", "Attention Rollout");
+//     form.append("top_k", "6");
 
-    const hfResponse = await fetch(
-      "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
-      {
-        method: "POST",
-        body: form,
-      }
-    );
+//     const hfResponse = await fetch(
+//       "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
+//       {
+//         method: "POST",
+//         body: form,
+//       }
+//     );
 
-    const result = await hfResponse.json();
-    // 🔥 SAVE RESULT IN DB
-    newMRI.prediction = result.prediction;
-    newMRI.probabilities = result.probabilities;
-    newMRI.analysedAt = new Date();
+//     const result = await hfResponse.json();
+//     // 🔥 SAVE RESULT IN DB
+//     newMRI.prediction = result.prediction;
+//     newMRI.probabilities = result.probabilities;
+//     newMRI.analysedAt = new Date();
 
-    await newMRI.save();
-    // ==============================
-    // 🧠 STEP 5: LOG RESULT (THIS WAS YOUR ISSUE BEFORE)
-    // ==============================
+//     await newMRI.save();
+//     // ==============================
+//     // 🧠 STEP 5: LOG RESULT (THIS WAS YOUR ISSUE BEFORE)
+//     // ==============================
 
-    // ==============================
-    // 🧠 STEP 6: RESPONSE TO FRONTEND
-    // ==============================
+//     // ==============================
+//     // 🧠 STEP 6: RESPONSE TO FRONTEND
+//     // ==============================
 
-    return res.status(201).json({
-      success: true,
-      message: "MRI uploaded successfully",
-      mri: newMRI,
-    });
+//     return res.status(201).json({
+//       success: true,
+//       message: "MRI uploaded successfully",
+//       mri: newMRI,
+//     });
 
-  } catch (err) {
-    console.error("❌ ERROR:", err);
+//   } catch (err) {
+//     console.error("❌ ERROR:", err);
 
-    return res.status(500).json({
-      success: false,
-      error: err.message,
-    });
-  }
-};
+//     return res.status(500).json({
+//       success: false,
+//       error: err.message,
+//     });
+//   }
+// };
 
 exports.getMRIResults = async (req, res) => {
   try {
@@ -205,6 +205,151 @@ exports.deleteMRI = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+
+exports.uploadMRI = async (req, res) => {
+  try {
+    const file = req.file;
+    const userId = req.user._id;
+
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    // ==============================
+    // 🧠 STEP 0: GET OR CREATE USER FOLDER
+    // ==============================
+    const folderName = userId.toString();
+
+    const folderQuery = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+
+    let folderRes = await drive.files.list({
+      q: folderQuery,
+      fields: "files(id, name)",
+    });
+
+    let userFolderId;
+
+    if (folderRes.data.files.length > 0) {
+      userFolderId = folderRes.data.files[0].id;
+    } else {
+      const folder = await drive.files.create({
+        requestBody: {
+          name: folderName,
+          mimeType: "application/vnd.google-apps.folder",
+          parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+        },
+      });
+
+      userFolderId = folder.data.id;
+    }
+
+    // ==============================
+    // 🧠 STEP 1: Upload to Google Drive
+    // ==============================
+
+    const count = await MRI.countDocuments({ userId });
+    const uploadNumber = count + 1;
+
+    const fileName = `MRI_${userId}_${uploadNumber}`;
+    const stream = Readable.from(file.buffer);
+
+    const driveUpload = await drive.files.create({
+      requestBody: {
+        name: fileName,
+        parents: [userFolderId], // 🔥 ONLY CHANGE HERE
+      },
+      media: {
+        mimeType: file.mimetype,
+        body: stream,
+      },
+    });
+
+    const fileId = driveUpload.data.id;
+
+    const fileUrl = `https://drive.google.com/file/d/${fileId}/view`;
+
+    // ==============================
+    // 🧠 STEP 2: Save in DB
+    // ==============================
+
+    const newMRI = await MRI.create({
+      userId,
+      originalName: file.originalname,
+      fileName,
+      filePath: fileId,
+      fileUrl,
+      uploadNumber,
+    });
+
+    // ==============================
+    // 🧠 STEP 3: Download file from Drive
+    // ==============================
+
+    const driveDownload = await drive.files.get(
+      {
+        fileId: fileId,
+        alt: "media",
+      },
+      { responseType: "arraybuffer" }
+    );
+
+    const fileBuffer = Buffer.from(driveDownload.data);
+
+    // ==============================
+    // 🧠 STEP 4: Send to HuggingFace model
+    // ==============================
+
+    const form = new FormData();
+
+    form.append(
+      "file",
+      new Blob([fileBuffer]),
+      file.originalname
+    );
+
+    form.append("xai_method", "Attention Rollout");
+    form.append("top_k", "6");
+
+    const hfResponse = await fetch(
+      "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
+      {
+        method: "POST",
+        body: form,
+      }
+    );
+
+    const result = await hfResponse.json();
+
+    // ==============================
+    // 🧠 STEP 5: SAVE RESULT
+    // ==============================
+
+    newMRI.prediction = result.prediction;
+    newMRI.probabilities = result.probabilities;
+    newMRI.analysedAt = new Date();
+
+    await newMRI.save();
+
+    // ==============================
+    // 🧠 STEP 6: RESPONSE
+    // ==============================
+
+    return res.status(201).json({
+      success: true,
+      message: "MRI uploaded successfully",
+      mri: newMRI,
+    });
+
+  } catch (err) {
+    console.error("❌ ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message,
     });
   }
 };
