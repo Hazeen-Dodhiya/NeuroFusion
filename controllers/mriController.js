@@ -1,122 +1,6 @@
 const MRI = require("../models/MRI");
 const drive = require("../config/googleDrive");
 const { Readable } = require("stream");
-
-// exports.uploadMRI = async (req, res) => {
-//   try {
-//     const file = req.file;
-//     const userId = req.user._id;
-
-//     if (!file) {
-//       return res.status(400).json({ message: "No file uploaded" });
-//     }
-
-//     // ==============================
-//     // 🧠 STEP 1: Upload to Google Drive
-//     // ==============================
-
-//     const count = await MRI.countDocuments({ userId });
-//     const uploadNumber = count + 1;
-
-//     const fileName = `MRI_${userId}_${uploadNumber}`;
-//     const stream = Readable.from(file.buffer);
-
-//     const driveUpload = await drive.files.create({
-//       requestBody: {
-//         name: fileName,
-//         parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
-//       },
-//       media: {
-//         mimeType: file.mimetype,
-//         body: stream,
-//       },
-//     });
-
-//     const fileId = driveUpload.data.id;
-
-//     const fileUrl = `https://drive.google.com/file/d/${fileId}/view`;
-
-//     // ==============================
-//     // 🧠 STEP 2: Save in DB
-//     // ==============================
-
-//     const newMRI = await MRI.create({
-//       userId,
-//       originalName: file.originalname,
-//       fileName,
-//       filePath: fileId, // 🔥 IMPORTANT
-//       fileUrl,
-//       uploadNumber,
-//     });
-
-//     // ==============================
-//     // 🧠 STEP 3: Download file from Drive (CORRECT WAY)
-//     // ==============================
-
-//     const driveDownload = await drive.files.get(
-//       {
-//         fileId: fileId,
-//         alt: "media",
-//       },
-//       { responseType: "arraybuffer" }
-//     );
-
-//     const fileBuffer = Buffer.from(driveDownload.data);
-
-//     // ==============================
-//     // 🧠 STEP 4: Send to HuggingFace model
-//     // ==============================
-
-//     const form = new FormData();
-
-//     form.append(
-//       "file",
-//       new Blob([fileBuffer]),
-//       file.originalname // keeps extension (.npz, .nii, etc)
-//     );
-
-//     form.append("xai_method", "Attention Rollout");
-//     form.append("top_k", "6");
-
-//     const hfResponse = await fetch(
-//       "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
-//       {
-//         method: "POST",
-//         body: form,
-//       }
-//     );
-
-//     const result = await hfResponse.json();
-//     // 🔥 SAVE RESULT IN DB
-//     newMRI.prediction = result.prediction;
-//     newMRI.probabilities = result.probabilities;
-//     newMRI.analysedAt = new Date();
-
-//     await newMRI.save();
-//     // ==============================
-//     // 🧠 STEP 5: LOG RESULT (THIS WAS YOUR ISSUE BEFORE)
-//     // ==============================
-
-//     // ==============================
-//     // 🧠 STEP 6: RESPONSE TO FRONTEND
-//     // ==============================
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "MRI uploaded successfully",
-//       mri: newMRI,
-//     });
-
-//   } catch (err) {
-//     console.error("❌ ERROR:", err);
-
-//     return res.status(500).json({
-//       success: false,
-//       error: err.message,
-//     });
-//   }
-// };
-
 exports.getMRIResults = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -315,7 +199,7 @@ exports.uploadMRI = async (req, res) => {
     form.append("top_k", "6");
 
     const hfResponse = await fetch(
-      "https://hehehanz-4156-1-slicevit.hf.space/api/predict",
+      "https://hehehanz-4156-1-slicevit.hf.space/api/explain",
       {
         method: "POST",
         body: form,
