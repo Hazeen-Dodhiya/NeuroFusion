@@ -8,7 +8,7 @@ exports.getMRIResults = async (req, res) => {
     // 🔥 get all MRIs of this user (latest first)
     const mris = await MRI.find({ userId })
       .sort({ createdAt: -1 })
-      .select("_id fileName prediction probabilities analysedAt fileUrl");
+      .select("_id fileName prediction probabilities analysedAt fileUrl heatmapUrl heatmapFileId");
 
     if (!mris.length) {
       return res.status(404).json({
