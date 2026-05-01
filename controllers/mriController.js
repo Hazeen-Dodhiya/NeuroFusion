@@ -73,6 +73,15 @@ exports.deleteMRI = async (req, res) => {
       console.error("Google Drive delete failed:", driveErr.message);
       // You can choose to continue or stop here
     }
+    try {
+      if (mri.heatmapFileId) {
+        await drive.files.delete({
+          fileId: mri.heatmapFileId,
+        });
+      }
+    } catch (err) {
+      console.error("❌ Heatmap delete failed:", err.message);
+    }
 
     // ==============================
     // 🗑 STEP 2: Delete from MongoDB
