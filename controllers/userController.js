@@ -397,49 +397,6 @@ exports.googleLogin = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-// exports.googleLogin = async (req, res) => {
-//   try {
-//     const { credential } = req.body;
-
-//     const ticket = await client.verifyIdToken({
-//       idToken: credential,
-//       audience: process.env.GOOGLE_CLIENT_ID,
-//     });
-
-//     const payload = ticket.getPayload();
-
-//     const { email } = payload;
-
-//     // ONLY CHECK EXISTING USER
-//     // const user = await User.findOne({ email });
-
-//     let user = await User.findOne({ email });
-
-//       if (!user) {
-//         user = await User.create({
-//           first_name: payload.given_name,
-//           last_name: payload.family_name,
-//           email,
-//           authProvider: "google",
-//         });
-//       }
-
-//     const token = jwt.sign(
-//       { id: user._id },
-//       process.env.JWT_SECRET,
-//       { expiresIn: "1d" }
-//     );
-
-//     res.json({
-//       token,
-//       user,
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
 exports.googleSignup = async (req, res) => {
   try {
     const { credential } = req.body;
