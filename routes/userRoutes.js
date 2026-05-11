@@ -23,4 +23,8 @@ router.post("/google-signup", googleSignup);
 
 router.get("/auth/google/callback", googleCallback);
 
+router.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 module.exports = router;
