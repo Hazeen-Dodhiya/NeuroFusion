@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
-const drive = require("../config/drive");
+const drive = require("../config/googleDrive");
 
 // SIGNUP
 exports.signup = async (req, res) => {
