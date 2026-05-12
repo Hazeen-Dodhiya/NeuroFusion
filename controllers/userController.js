@@ -498,10 +498,14 @@ exports.googleCallback = async (req, res) => {
 
 
 
-
 exports.deleteUser = async (req, res) => {
   try {
     const userId = req.user._id;
+
+    const User = require("../models/User");
+    const MRI = require("../models/MRI");
+
+    const { google } = require("googleapis");
 
     // ==============================
     // FIND USER
@@ -533,10 +537,10 @@ exports.deleteUser = async (req, res) => {
     // FIND ALL MRI RECORDS
     // ==============================
 
-    const mris = await require("../models/MRI").find({ userId });
+    const mris = await MRI.find({ userId });
 
     // ==============================
-    // DELETE MRI + HEATMAP FILES
+    // DELETE MRI + HEATMAP FILES (SAFE VERSION LIKE deleteMRI)
     // ==============================
 
     for (const mri of mris) {
@@ -546,9 +550,6 @@ exports.deleteUser = async (req, res) => {
           await drive.files.delete({
             fileId: mri.filePath,
           });
-
-          console.log("Deleted MRI file:", mri.filePath);
-
         } catch (err) {
           console.log("MRI delete error:", err.message);
         }
@@ -560,9 +561,6 @@ exports.deleteUser = async (req, res) => {
           await drive.files.delete({
             fileId: mri.heatmapFileId,
           });
-
-          console.log("Deleted heatmap:", mri.heatmapFileId);
-
         } catch (err) {
           console.log("Heatmap delete error:", err.message);
         }
@@ -570,26 +568,24 @@ exports.deleteUser = async (req, res) => {
     }
 
     // ==============================
-    // DELETE USER GOOGLE DRIVE FOLDER
-    // folder name = userId
+    // DELETE USER FOLDER FROM DRIVE
+    // (same logic as uploadMRI)
     // ==============================
 
     try {
-      const folderSearch = await drive.files.list({
-        q: `name='${userId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      const folderName = userId.toString();
+
+      const folderRes = await drive.files.list({
+        q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         fields: "files(id, name)",
       });
 
-      const folders = folderSearch.data.files;
+      const folder = folderRes.data.files[0];
 
-      if (folders.length > 0) {
-        for (const folder of folders) {
-          await drive.files.delete({
-            fileId: folder.id,
-          });
-
-          console.log("Deleted folder:", folder.name);
-        }
+      if (folder) {
+        await drive.files.delete({
+          fileId: folder.id,
+        });
       }
 
     } catch (err) {
@@ -597,32 +593,28 @@ exports.deleteUser = async (req, res) => {
     }
 
     // ==============================
-    // DELETE MRI RECORDS FROM DB
+    // DELETE FROM DATABASE
     // ==============================
 
-    await require("../models/MRI").deleteMany({ userId });
-
-    // ==============================
-    // DELETE USER
-    // ==============================
-
+    await MRI.deleteMany({ userId });
     await User.findByIdAndDelete(userId);
 
     // ==============================
     // RESPONSE
     // ==============================
 
-    res.json({
+    return res.json({
       success: true,
-      message: "User account and all related data deleted successfully",
+      message: "User and all associated data deleted successfully",
     });
 
   } catch (error) {
     console.log(error);
 
-    res.status(500).json({
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
       error: error.message,
     });
   }
 };
-
