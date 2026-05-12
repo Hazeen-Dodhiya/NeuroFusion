@@ -494,3 +494,135 @@ exports.googleCallback = async (req, res) => {
     res.status(500).send("Error getting token");
   }
 };
+
+
+
+
+
+exports.deleteUser = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // ==============================
+    // FIND USER
+    // ==============================
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // ==============================
+    // GOOGLE DRIVE SETUP
+    // ==============================
+
+    const auth = new google.auth.GoogleAuth({
+      keyFile: "service-account.json",
+      scopes: ["https://www.googleapis.com/auth/drive"],
+    });
+
+    const drive = google.drive({
+      version: "v3",
+      auth,
+    });
+
+    // ==============================
+    // FIND ALL MRI RECORDS
+    // ==============================
+
+    const mris = await require("../models/MRI").find({ userId });
+
+    // ==============================
+    // DELETE MRI + HEATMAP FILES
+    // ==============================
+
+    for (const mri of mris) {
+      // DELETE MRI FILE
+      if (mri.filePath) {
+        try {
+          await drive.files.delete({
+            fileId: mri.filePath,
+          });
+
+          console.log("Deleted MRI file:", mri.filePath);
+
+        } catch (err) {
+          console.log("MRI delete error:", err.message);
+        }
+      }
+
+      // DELETE HEATMAP FILE
+      if (mri.heatmapFileId) {
+        try {
+          await drive.files.delete({
+            fileId: mri.heatmapFileId,
+          });
+
+          console.log("Deleted heatmap:", mri.heatmapFileId);
+
+        } catch (err) {
+          console.log("Heatmap delete error:", err.message);
+        }
+      }
+    }
+
+    // ==============================
+    // DELETE USER GOOGLE DRIVE FOLDER
+    // folder name = userId
+    // ==============================
+
+    try {
+      const folderSearch = await drive.files.list({
+        q: `name='${userId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: "files(id, name)",
+      });
+
+      const folders = folderSearch.data.files;
+
+      if (folders.length > 0) {
+        for (const folder of folders) {
+          await drive.files.delete({
+            fileId: folder.id,
+          });
+
+          console.log("Deleted folder:", folder.name);
+        }
+      }
+
+    } catch (err) {
+      console.log("Folder delete error:", err.message);
+    }
+
+    // ==============================
+    // DELETE MRI RECORDS FROM DB
+    // ==============================
+
+    await require("../models/MRI").deleteMany({ userId });
+
+    // ==============================
+    // DELETE USER
+    // ==============================
+
+    await User.findByIdAndDelete(userId);
+
+    // ==============================
+    // RESPONSE
+    // ==============================
+
+    res.json({
+      success: true,
+      message: "User account and all related data deleted successfully",
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      error: error.message,
+    });
+  }
+};
+
