@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
+const drive = require("../config/drive");
 
 // SIGNUP
 exports.signup = async (req, res) => {
@@ -502,15 +503,9 @@ exports.deleteUser = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const User = require("../models/User");
-    const MRI = require("../models/MRI");
-
-    const { google } = require("googleapis");
-
     // ==============================
     // FIND USER
     // ==============================
-
     const user = await User.findById(userId);
 
     if (!user) {
@@ -520,64 +515,48 @@ exports.deleteUser = async (req, res) => {
     }
 
     // ==============================
-    // GOOGLE DRIVE SETUP
-    // ==============================
-
-    const auth = new google.auth.GoogleAuth({
-      keyFile: "service-account.json",
-      scopes: ["https://www.googleapis.com/auth/drive"],
-    });
-
-    const drive = google.drive({
-      version: "v3",
-      auth,
-    });
-
-    // ==============================
     // FIND ALL MRI RECORDS
     // ==============================
-
     const mris = await MRI.find({ userId });
 
     // ==============================
-    // DELETE MRI + HEATMAP FILES (SAFE VERSION LIKE deleteMRI)
+    // DELETE MRI + HEATMAP FILES FROM DRIVE
+    // (use SAME logic as deleteMRI)
     // ==============================
-
-    for (const mri of mris) {
-      // DELETE MRI FILE
-      if (mri.filePath) {
-        try {
-          await drive.files.delete({
-            fileId: mri.filePath,
-          });
-        } catch (err) {
-          console.log("MRI delete error:", err.message);
+    await Promise.all(
+      mris.map(async (mri) => {
+        // delete MRI file
+        if (mri.filePath) {
+          try {
+            await drive.files.delete({
+              fileId: mri.filePath,
+            });
+          } catch (err) {
+            console.log("MRI delete error:", err.message);
+          }
         }
-      }
 
-      // DELETE HEATMAP FILE
-      if (mri.heatmapFileId) {
-        try {
-          await drive.files.delete({
-            fileId: mri.heatmapFileId,
-          });
-        } catch (err) {
-          console.log("Heatmap delete error:", err.message);
+        // delete heatmap file
+        if (mri.heatmapFileId) {
+          try {
+            await drive.files.delete({
+              fileId: mri.heatmapFileId,
+            });
+          } catch (err) {
+            console.log("Heatmap delete error:", err.message);
+          }
         }
-      }
-    }
+      })
+    );
 
     // ==============================
     // DELETE USER FOLDER FROM DRIVE
-    // (same logic as uploadMRI)
+    // (folder name = userId)
     // ==============================
-
     try {
-      const folderName = userId.toString();
-
       const folderRes = await drive.files.list({
-        q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: "files(id, name)",
+        q: `name='${userId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: "files(id)",
       });
 
       const folder = folderRes.data.files[0];
@@ -587,7 +566,6 @@ exports.deleteUser = async (req, res) => {
           fileId: folder.id,
         });
       }
-
     } catch (err) {
       console.log("Folder delete error:", err.message);
     }
@@ -595,17 +573,15 @@ exports.deleteUser = async (req, res) => {
     // ==============================
     // DELETE FROM DATABASE
     // ==============================
-
     await MRI.deleteMany({ userId });
     await User.findByIdAndDelete(userId);
 
     // ==============================
     // RESPONSE
     // ==============================
-
     return res.json({
       success: true,
-      message: "User and all associated data deleted successfully",
+      message: "User and all related data deleted successfully",
     });
 
   } catch (error) {
