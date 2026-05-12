@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const MRI = require("../models/MRI")
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto')
