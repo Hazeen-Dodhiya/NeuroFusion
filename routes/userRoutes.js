@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router();
-const {signup, login, updateProfile, forgotPassword, resetPassword, verifyResetToken, googleLogin, googleSignup, googleCallback} = require('../controllers/userController');
+const {signup, login, updateProfile, forgotPassword, resetPassword, verifyResetToken, googleLogin, googleSignup, googleCallback, deleteUser} = require('../controllers/userController');
 const auth = require('../middelware/auth')
 
 
