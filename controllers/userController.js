@@ -501,7 +501,7 @@ exports.googleCallback = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     // ==============================
     // FIND USER

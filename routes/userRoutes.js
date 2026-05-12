@@ -24,6 +24,6 @@ router.get("/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-router.delete("/delete", deleteUser);
+router.delete("/delete", auth, deleteUser);
 
 module.exports = router;
